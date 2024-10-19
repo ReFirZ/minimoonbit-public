@@ -1,5 +1,4 @@
 /// The stage to be run next. 
-/// xiugai
 enum Stages {
   Parse
   Typecheck
