@@ -84,13 +84,13 @@ fn CompileStatus::initialize(
 }
 
 /// Run the next stage of compilation. Returns true if the compilation is finished.
-fn CompileStatus::step(self : CompileStatus) -> Bool!@typing.TyErr{
+fn CompileStatus::step(self : CompileStatus) -> Bool!{
   if self.curr_stage >= self.end_stage {
     return true
   }
   match self.curr_stage {
     Parse => {
-      println("\n\nstart parse")
+      println("\nstart parse")
       let source_code = self.source_code.unwrap()
       println(source_code)
       let tokens = []
@@ -102,11 +102,11 @@ fn CompileStatus::step(self : CompileStatus) -> Bool!@typing.TyErr{
       // self.ast =parsed
       // self.ast=[parsed]  // 可不可以返回一个Array[Syntax],如何返回一个Syntax
       println("生成ast：\{self.ast}")
-      println("end parse")
+      println("end parse\n")
       // Some(self.ast)
     }
     Typecheck => {
-      println("\n\nstart typecheck")      
+      println("\n\nstart typecheck")
       match self.ast{
           None => @util.die("语法解析为空")
           Some(ast) => {
@@ -117,13 +117,18 @@ fn CompileStatus::step(self : CompileStatus) -> Bool!@typing.TyErr{
       println("end typecheck")
     }
     Knf => {
-      let knf = self.knf_env.to_knf(self.typechecked.unwrap())
+      println("\nstart knf")
+      let knf = self.knf_env.seq_to_knf!(self.typechecked.unwrap())
       self.knf = Some(knf)
+      println("\{self.knf}")
+      println("end knf\n")
     }
     KnfOpt => {
+      println("\nstart knf opt")
       let knf = self.knf.unwrap()
       // TODO: optimize
       self.opt_knf = Some(knf)
+      println("end knf opt\n")
     }
     Closure => {
       let closure_ir = @closure.knf_program_to_closure(
@@ -175,7 +180,6 @@ fn main {
   // Testing directives
   let json = Ref::new(false)
   let start_stage = Ref::new(Stages::Parse)
-  // let start_stage = Ref::new(Stages::Typecheck)  // test
   let end_stage = Ref::new(Stages::Finished)
   let knf_interpreter = Ref::new(false)
   let closure_interpreter = Ref::new(false)
@@ -279,6 +283,7 @@ fn main {
 
   // Configure pipeline
   if knf_interpreter.val {
+    // 执行knf_interpreter（包含knf）
     end_stage.val = Stages::Knf
   }
   if closure_interpreter.val {
@@ -319,6 +324,7 @@ fn main {
        stop = status.step!()
     }catch{
         // @typing.TyErr(s) => println(s)
+        _ => @util.die("捕获阶段异常")
     }
     if stages_to_print.contains(stg) {
       println("Stage: \{stg}")
@@ -331,6 +337,7 @@ fn main {
 
   // Output
   if knf_interpreter.val {
+    println("\nstart knf interpreter val")
     let knfi = @knf_eval.KnfInterpreter::new()
     add_interpreter_fns(knfi)
     match knfi.eval_full?(status.knf.unwrap()) {
@@ -340,6 +347,7 @@ fn main {
         @util.die("KNF interpreter error")
       }
     }
+    println("end knf interpreter val\n")
   } else if closure_interpreter.val {
     let clsi = @closure_eval.ClosureInterpreter::new()
     add_closure_interpreter_fns(clsi)

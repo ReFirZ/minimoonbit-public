@@ -28,6 +28,96 @@ fn KnfEnv::new_named_temp(self : KnfEnv, name : Name) -> Name {
   { ..name, slot: counter }
 }
 
-pub fn KnfEnv::to_knf(self : KnfEnv, s : @types.Syntax) -> Knf { // !Failure
-  abort("todo")
+pub fn KnfEnv::to_knf(self : KnfEnv, ast : @types.Syntax) -> Knf! { // !Failure
+  println("to_knf: \{ast}")
+  match ast {
+    // Trivial cases
+    Var(name) => {
+      Knf::Var(Name::name_only(name))
+      }
+    Int(i) => Knf::Int(i)
+    Prim(a, b, op, ..) => { // 如何获得kind
+      let a_name = self.new_temp()
+      let b_name = self.new_temp()
+
+      // let a_name = <a> in
+      // let b_name = <b> in
+      // a_name +-*/ b_name
+      Knf::Let((a_name, @types.Type::Int), self.to_knf!(a),
+          Knf::Let((b_name,@types.Type::Int), self.to_knf!(b), 
+            match op{
+              Add=>Knf::Add(a_name, b_name)
+              Sub=>Knf::Sub(a_name, b_name)
+              Mul=>Knf::Mul(a_name, b_name)
+              Div=>Knf::Div(a_name, b_name)
+            }
+            )
+      )
+    }
+    Let((name_str,name_type), expr, Unit) =>{
+      Knf::Let(
+        (Name::name_only(name_str),name_type), 
+        self.to_knf!(expr),
+        self.to_knf!(Unit)
+      )
+    }
+    LetRec({name:(fun_name,fun_type), args:params, body:body}, Unit) =>{
+        let new_params=[]
+        for index, arg_arg_type in params{
+          new_params.push((Name::name_only(arg_arg_type.0),arg_arg_type.1))
+          println(index)
+        }
+        println("body: \{body}")
+        Knf::LetRec(
+          {name:Name::name_only(fun_name), ty:fun_type, args:new_params, body:self.to_knf!(body)}, 
+          self.to_knf!(Unit)
+        )
+    }
+    App(fun_name,array_params)=>{
+      let fun_name_Name = Name::name_only(self.to_knf!(fun_name).to_string())
+      let array_params_Name=[]
+      for param in array_params{
+        array_params_Name.push(Name::name_only(self.to_knf!(param).to_string()))
+      }
+      Knf::Apply(fun_name_Name,array_params_Name)
+
+    }
+    If(cond, then, els) => {
+      let cond_name = self.new_temp()
+
+      // let cond_name = <cond> in
+      // if cond_name then <then> else <els>
+      // Knf::Let(
+      //   (cond_name,@types.Type::Bool),
+      //   self.to_knf!(cond),
+      //   Knf::IfEq(cond_name, then, self.to_knf!(els),Knf::Unit)
+      // )
+      Knf::Unit
+    }
+    Seq(ast_array)=>{
+      let new_ast_array=[]
+      for ast in ast_array{
+        let knf= self.to_knf!(ast)
+        new_ast_array.push(knf)
+      }
+      Knf::Seq(new_ast_array)
+    }
+    _ => Knf::Unit
+  }
+}
+
+pub fn KnfEnv::seq_to_knf(self : KnfEnv, ast : @types.Syntax) -> Knf! {
+  let knf_array=[]
+  match ast{
+    Seq(ast_array)=>{
+      for one_ast in ast_array{
+        let knf=self.to_knf!(one_ast)
+        println(knf)
+        knf_array.push(knf)
+      }
+      Knf::Seq(knf_array)
+      // Knf::Unit
+    }
+    _ => Knf::Unit
+  }
 }

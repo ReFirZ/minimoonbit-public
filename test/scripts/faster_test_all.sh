@@ -14,18 +14,26 @@ run_tests() {
     echo "$directory"
     for file in "$directory"/*; do
         filename=$(basename "$file")
-        moon run ./src/bin/main.mbt -- --end-stage "$stage" "$file" >test/output/information.txt 2>test/output/error_log.txt
+        echo -n "$filename: "
+        # 根据阶段决定命令
+        if [[ "$stage" == "knf" ]]; then
+            moon run ./src/bin/main.mbt -- --knf-interpreter "$file" >test/output/information.txt 2>test/output/error_log.txt
+        else
+            moon run ./src/bin/main.mbt -- --end-stage "$stage" "$file" >test/output/information.txt 2>test/output/error_log.txt
+        fi
+        
         if [ $? -eq 0 ]; then
-            echo "$filename: AC"
+            echo "AC"
             correct_cases=$((correct_cases + 1))
         else
-            echo "$filename: RE"
-            if [[ "$filename" != neg* ]]; then
+            echo "RE"
+            if [[ "$filename" == _neg* ]]; then
                 correct_cases=$((correct_cases + 1))
             fi
         fi
         total_cases=$((total_cases + 1))
     done
+    
     # Calculate accuracy
     if [ $total_cases -ne 0 ]; then
         accuracy=$(echo "scale=2; ($correct_cases / $total_cases) * 15" | bc)
@@ -39,14 +47,14 @@ run_tests() {
 declare -A test_cases=(
     ["parse"]="test/test_cases/parsing"
     ["typecheck"]="test/test_cases/typing"
+    ["knf"]="test/test_cases/knf"
 )
 
-stages=("parse" "typecheck")
+stages=("parse" "typecheck" "knf")
 # 使用for循环遍历阶段和对应的路径
 for stage in "${stages[@]}"; do
     echo "$stage"
-    for path in ${test_cases[$stage]}; do
-        run_tests "$stage" "$path"
-        echo
-    done
+    path=${test_cases[$stage]}  # 获取路径
+    run_tests "$stage" "$path"
+    echo
 done
