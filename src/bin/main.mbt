@@ -107,20 +107,16 @@ fn CompileStatus::step(self : CompileStatus) -> Bool!{
     }
     Typecheck => {
       println("\n\nstart typecheck")
-      match self.ast{
-          None => @util.die("语法解析为空")
-          Some(ast) => {
-            self.typechecked = Some(@typing.typing!(ast))
-          }
-      }
+      self.typechecked = Some(@typing.typing!(self.ast.unwrap()))
       println("生成typechecked：\{self.typechecked}")
       println("end typecheck")
     }
     Knf => {
       println("\nstart knf")
-      let knf = self.knf_env.seq_to_knf!(self.typechecked.unwrap())
+      let knf0 = self.knf_env.syntax_preprocess(self.typechecked.unwrap())
+      let knf = self.knf_env.seq_to_knf!(knf0)
       self.knf = Some(knf)
-      println("\{self.knf}")
+      println("self.knf: \{self.knf}")
       println("end knf\n")
     }
     KnfOpt => {
@@ -339,15 +335,20 @@ fn main {
   if knf_interpreter.val {
     println("\nstart knf interpreter val")
     let knfi = @knf_eval.KnfInterpreter::new()
+    // 添加解释器函数
     add_interpreter_fns(knfi)
     match knfi.eval_full?(status.knf.unwrap()) {
-      Ok(_) => ()
+      Ok(knf_eval) => {
+        // println("knf评估结果：")
+        // println(knf_eval)
+        ()
+        }
       Err(Failure(e)) => {
         println(e)
         @util.die("KNF interpreter error")
       }
     }
-    println("end knf interpreter val\n")
+    // println("end knf interpreter val\n")
   } else if closure_interpreter.val {
     let clsi = @closure_eval.ClosureInterpreter::new()
     add_closure_interpreter_fns(clsi)
